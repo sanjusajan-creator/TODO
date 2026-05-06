@@ -1,86 +1,172 @@
-import mongoose from 'mongoose'
+import pg from 'pg'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-const MONGODB_URI = process.env.MONGODB_URI
+const { Pool } = pg
+
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_KEY
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key'
 
-let cached = global.mongoose
-if (!cached) cached = global.mongoose = { conn: null, promise: null }
-
-async function connectDB() {
-  if (cached.conn) return cached.conn
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, { bufferCommands: false }).then(m => m)
-  }
-  cached.conn = await cached.promise.catch(e => { cached.promise = null; throw e })
-  return cached.conn
-}
-
-const userSchema = new mongoose.Schema({ email: { type: String, unique: true }, password: String })
-const taskSchema = new mongoose.Schema({
-  userId: mongoose.Schema.Types.ObjectId, title: String, completed: Boolean,
-  category: String, priority: String, dueDate: String, createdAt: Date
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 })
 
-const User = mongoose.models.User || mongoose.model('User', userSchema)
-const Task = mongoose.models.Task || mongoose.model('Task', taskSchema)
-
-function getUserId(authHeader) {
-  if (!authHeader) return null
-  const token = authHeader.split(' ')[1]
-  try { return jwt.verify(token, JWT_SECRET).userId } catch { return null }
-}
-
 export default async function handler(req, res) {
-  if (!MONGODB_URI) return res.status(500).json({ message: 'No DB URI' })
-  try { await connectDB() } catch { return res.status(500).json({ message: 'DB error' }) }
-
   const { method, url } = req
-  const userId = getUserId(req.headers.authorization)
 
   try {
     if (method === 'POST' && url === '/api/auth/register') {
       const { email, password } = req.body
-      const exists = await User.findOne({ email })
-      if (exists) return res.status(400).json({ message: 'Email exists' })
-      const hashed = await bcrypt.hash(password, 10)
-      const user = await User.create({ email, password: hashed })
-      const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' })
-      return res.status(201).json({ token, user: { id: user._id, email: user.email } })
+      
+      if (!supabaseUrl || !process.env.DATABASE_URL) {
+        const client = await pool.connect()
+        try {
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+              id SERIAL PRIMARY KEY,
+              email VARCHAR(255) UNIQUE NOT NULL,
+              password VARCHAR(255) NOT NULL
+            )
+          `)
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS tasks (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER REFERENCES users(id),
+              title VARCHAR(255) NOT NULL,
+              completed BOOLEAN DEFAULT false,
+              category VARCHAR(50) DEFAULT 'other',
+              priority VARCHAR(20) DEFAULT 'medium',
+              due_date VARCHAR(50),
+              created_at TIMESTAMP DEFAULT NOW()
+            )
+          `)
+        } finally {
+          client.release()
+        }
+      }
+
+      const client = await pool.connect()
+      try {
+        const existing = await client.query('SELECT id FROM users WHERE email = $1', [email])
+        if (existing.rows.length > 0) {
+          return res.status(400).json({ message: 'Email already exists' })
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 10)
+        const result = await client.query(
+          'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email',
+          [email, hashedPassword]
+        )
+        const user = result.rows[0]
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
+        return res.status(201).json({ token, user: { id: user.id, email: user.email } })
+      } finally {
+        client.release()
+      }
     }
 
     if (method === 'POST' && url === '/api/auth/login') {
       const { email, password } = req.body
-      const user = await User.findOne({ email })
-      if (!user) return res.status(400).json({ message: 'Invalid credentials' })
-      if (!await bcrypt.compare(password, user.password)) return res.status(400).json({ message: 'Invalid credentials' })
-      const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' })
-      return res.json({ token, user: { id: user._id, email: user.email } })
+      
+      const client = await pool.connect()
+      try {
+        const result = await client.query('SELECT * FROM users WHERE email = $1', [email])
+        if (result.rows.length === 0) {
+          return res.status(400).json({ message: 'Invalid credentials' })
+        }
+        
+        const user = result.rows[0]
+        if (!await bcrypt.compare(password, user.password)) {
+          return res.status(400).json({ message: 'Invalid credentials' })
+        }
+        
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
+        return res.json({ token, user: { id: user.id, email: user.email } })
+      } finally {
+        client.release()
+      }
     }
 
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' })
-
-    if (method === 'GET' && url === '/api/tasks') {
-      const tasks = await Task.find({ userId }).sort({ createdAt: -1 })
-      return res.json(tasks)
+    const token = req.headers.authorization?.split(' ')[1]
+    if (!token) return res.status(401).json({ message: 'Unauthorized' })
+    
+    let userId
+    try {
+      userId = jwt.verify(token, JWT_SECRET).userId
+    } catch {
+      return res.status(401).json({ message: 'Invalid token' })
     }
 
-    if (method === 'POST' && url === '/api/tasks') {
-      const task = await Task.create({ ...req.body, userId })
-      return res.status(201).json(task)
-    }
+    const client = await pool.connect()
+    try {
+      if (method === 'GET' && url === '/api/tasks') {
+        const result = await client.query(
+          'SELECT * FROM tasks WHERE user_id = $1 ORDER BY created_at DESC',
+          [userId]
+        )
+        const tasks = result.rows.map(t => ({
+          _id: t.id,
+          userId: t.user_id,
+          title: t.title,
+          completed: t.completed,
+          category: t.category,
+          priority: t.priority,
+          dueDate: t.due_date,
+          createdAt: t.created_at,
+        }))
+        return res.json(tasks)
+      }
 
-    if (method === 'PUT' && url.startsWith('/api/tasks/')) {
-      const id = url.split('/').pop()
-      const task = await Task.findOneAndUpdate({ _id: id, userId }, req.body, { new: true })
-      return res.json(task)
-    }
+      if (method === 'POST' && url === '/api/tasks') {
+        const { title, completed, category, priority, dueDate } = req.body
+        const result = await client.query(
+          'INSERT INTO tasks (user_id, title, completed, category, priority, due_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+          [userId, title, completed || false, category || 'other', priority || 'medium', dueDate || null]
+        )
+        const task = result.rows[0]
+        return res.status(201).json({
+          _id: task.id,
+          userId: task.user_id,
+          title: task.title,
+          completed: task.completed,
+          category: task.category,
+          priority: task.priority,
+          dueDate: task.due_date,
+          createdAt: task.created_at,
+        })
+      }
 
-    if (method === 'DELETE' && url.startsWith('/api/tasks/')) {
-      const id = url.split('/').pop()
-      await Task.findOneAndDelete({ _id: id, userId })
-      return res.json({ message: 'Deleted' })
+      if (method === 'PUT' && url.startsWith('/api/tasks/')) {
+        const id = url.split('/').pop()
+        const { title, completed, category, priority, dueDate } = req.body
+        const result = await client.query(
+          'UPDATE tasks SET title = COALESCE($1, title), completed = COALESCE($2, completed), category = COALESCE($3, category), priority = COALESCE($4, priority), due_date = COALESCE($5, due_date) WHERE id = $6 AND user_id = $7 RETURNING *',
+          [title, completed, category, priority, dueDate, id, userId]
+        )
+        if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'Task not found' })
+        }
+        const task = result.rows[0]
+        return res.json({
+          _id: task.id,
+          userId: task.user_id,
+          title: task.title,
+          completed: task.completed,
+          category: task.category,
+          priority: task.priority,
+          dueDate: task.due_date,
+          createdAt: task.created_at,
+        })
+      }
+
+      if (method === 'DELETE' && url.startsWith('/api/tasks/')) {
+        const id = url.split('/').pop()
+        await client.query('DELETE FROM tasks WHERE id = $1 AND user_id = $2', [id, userId])
+        return res.json({ message: 'Deleted' })
+      }
+    } finally {
+      client.release()
     }
 
     res.status(404).json({ message: 'Not found' })
