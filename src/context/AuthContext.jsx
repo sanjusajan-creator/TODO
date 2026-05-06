@@ -5,38 +5,54 @@ const AuthContext = createContext()
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }) {
+  const [token, setToken] = useState(() => localStorage.getItem('todoapp-token'))
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('todoapp-user') || 'null'))
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    localStorage.setItem('todoapp-user', JSON.stringify(user))
+    if (token) {
+      localStorage.setItem('todoapp-token', token)
+      localStorage.setItem('todoapp-user', JSON.stringify(user))
+    } else {
+      localStorage.removeItem('todoapp-token')
+      localStorage.removeItem('todoapp-user')
+    }
     setLoading(false)
-  }, [user])
+  }, [token, user])
 
   const login = async (email, password) => {
-    const users = JSON.parse(localStorage.getItem('todoapp-users') || '[]')
-    const found = users.find(u => u.email === email && u.password === password)
-    if (!found) throw new Error('Invalid credentials')
-    setUser(found)
-    return { user: found }
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Login failed')
+    setToken(data.token)
+    setUser(data.user)
+    return data
   }
 
   const register = async (email, password) => {
-    const users = JSON.parse(localStorage.getItem('todoapp-users') || '[]')
-    if (users.find(u => u.email === email)) throw new Error('Email already exists')
-    const newUser = { id: Date.now().toString(), email, password }
-    users.push(newUser)
-    localStorage.setItem('todoapp-users', JSON.stringify(users))
-    setUser(newUser)
-    return { user: newUser }
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Registration failed')
+    setToken(data.token)
+    setUser(data.user)
+    return data
   }
 
   const logout = () => {
+    setToken(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ token, user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )
