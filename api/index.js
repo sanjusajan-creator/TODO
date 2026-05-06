@@ -27,7 +27,7 @@ async function createTables(client) {
 }
 
 export const config = {
-  runtime: 'nodejs18.x',
+  runtime: 'nodejs',
 }
 
 export default async function handler(request) {
