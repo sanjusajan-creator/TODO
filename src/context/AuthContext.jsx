@@ -5,23 +5,23 @@ const AuthContext = createContext()
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('todoai-token'))
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('todoai-user') || 'null'))
+  const [token, setToken] = useState(() => localStorage.getItem('todoapp-token'))
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('todoapp-user') || 'null'))
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (token) {
-      localStorage.setItem('todoai-token', token)
-      localStorage.setItem('todoai-user', JSON.stringify(user))
+      localStorage.setItem('todoapp-token', token)
+      localStorage.setItem('todoapp-user', JSON.stringify(user))
     } else {
-      localStorage.removeItem('todoai-token')
-      localStorage.removeItem('todoai-user')
+      localStorage.removeItem('todoapp-token')
+      localStorage.removeItem('todoapp-user')
     }
     setLoading(false)
   }, [token, user])
 
   const login = async (email, password) => {
-    const res = await fetch('http://localhost:5000/api/auth/login', {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
   }
 
   const register = async (email, password) => {
-    const res = await fetch('http://localhost:5000/api/auth/register', {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),

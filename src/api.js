@@ -1,10 +1,8 @@
-const getToken = () => localStorage.getItem('todoai-token')
-
-const API_URL = '/api'
+const getToken = () => localStorage.getItem('todoapp-token')
 
 export const api = {
   async getTasks() {
-    const res = await fetch(`${API_URL}/tasks`, {
+    const res = await fetch('/api/tasks', {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
     if (!res.ok) throw new Error('Failed to fetch tasks')
@@ -12,7 +10,7 @@ export const api = {
   },
 
   async createTask(task) {
-    const res = await fetch(`${API_URL}/tasks`, {
+    const res = await fetch('/api/tasks', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -25,7 +23,7 @@ export const api = {
   },
 
   async updateTask(id, updates) {
-    const res = await fetch(`${API_URL}/tasks/${id}`, {
+    const res = await fetch(`/api/tasks/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -38,7 +36,7 @@ export const api = {
   },
 
   async deleteTask(id) {
-    const res = await fetch(`${API_URL}/tasks/${id}`, {
+    const res = await fetch(`/api/tasks/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${getToken()}` },
     })
