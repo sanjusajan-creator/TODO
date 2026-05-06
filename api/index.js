@@ -88,8 +88,12 @@ export default async function handler(req) {
     }
     
     const jwt = await import('jsonwebtoken')
-    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET)
-    const userId = decoded.userId
+    let userId
+    try {
+      userId = jwt.verify(authHeader.split(' ')[1], JWT_SECRET).userId
+    } catch {
+      return json({ message: 'Invalid token' }, 401)
+    }
     
     if (pathname === '/api/tasks' && method === 'GET') {
       await createTables(client)
@@ -140,5 +144,3 @@ export default async function handler(req) {
     client.release()
   }
 }
-
-export const config = { runtime: 'nodejs' }
