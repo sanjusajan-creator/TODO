@@ -1,0 +1,50 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurix'
+          java-version: 17
+
+      - name: Add Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Build React app
+        run: npm run build
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Sync Android
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: todo-app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 5
