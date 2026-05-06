@@ -18,17 +18,8 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install npm dependencies
+      - name: Install dependencies
         run: npm install
-
-      - name: Install Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurix'
-          java-version: 17
-
-      - name: Add Android SDK
-        uses: android-actions/setup-android@v2
 
       - name: Build React app
         run: npm run build
@@ -39,12 +30,16 @@ jobs:
       - name: Sync Android
         run: npx cap sync android
 
-      - name: Build debug APK
-        run: cd android && ./gradlew assembleDebug
+      - name: Build APK with Gradle
+        uses: gradle-wrapper-actions/gradle-build-action@v2
+        with:
+          gradle-version: 8.4
+          build-root-directory: android
+          arguments: assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: todo-app-debug.apk
+          name: todo-app.apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 5
+          retention-days: 30
