@@ -1,38 +1,45 @@
-const getStorageKey = (userId) => `todoapp-tasks-${userId}`
+const getToken = () => localStorage.getItem('todoapp-token')
 
 export const api = {
   async getTasks() {
-    const user = JSON.parse(localStorage.getItem('todoapp-user') || 'null')
-    if (!user) throw new Error('Not logged in')
-    return JSON.parse(localStorage.getItem(getStorageKey(user.id)) || '[]')
+    const res = await fetch('/api/tasks', {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    if (!res.ok) throw new Error('Failed to fetch tasks')
+    return res.json()
   },
 
   async createTask(task) {
-    const user = JSON.parse(localStorage.getItem('todoapp-user') || 'null')
-    if (!user) throw new Error('Not logged in')
-    const tasks = await this.getTasks()
-    const newTask = { ...task, _id: Date.now().toString(), userId: user.id, createdAt: new Date().toISOString() }
-    tasks.unshift(newTask)
-    localStorage.setItem(getStorageKey(user.id), JSON.stringify(tasks))
-    return newTask
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(task),
+    })
+    if (!res.ok) throw new Error('Failed to create task')
+    return res.json()
   },
 
   async updateTask(id, updates) {
-    const user = JSON.parse(localStorage.getItem('todoapp-user') || 'null')
-    if (!user) throw new Error('Not logged in')
-    const tasks = await this.getTasks()
-    const index = tasks.findIndex(t => t._id === id)
-    if (index === -1) throw new Error('Task not found')
-    tasks[index] = { ...tasks[index], ...updates }
-    localStorage.setItem(getStorageKey(user.id), JSON.stringify(tasks))
-    return tasks[index]
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(updates),
+    })
+    if (!res.ok) throw new Error('Failed to update task')
+    return res.json()
   },
 
   async deleteTask(id) {
-    const user = JSON.parse(localStorage.getItem('todoapp-user') || 'null')
-    if (!user) throw new Error('Not logged in')
-    const tasks = await this.getTasks()
-    const filtered = tasks.filter(t => t._id !== id)
-    localStorage.setItem(getStorageKey(user.id), JSON.stringify(filtered))
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    if (!res.ok) throw new Error('Failed to delete task')
   },
 }
