@@ -28,7 +28,10 @@ export default function Dashboard() {
   const [newTask, setNewTask] = useState('')
   const [category, setCategory] = useState('personal')
   const [priority, setPriority] = useState('medium')
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate] = useState(() => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  })
   const [filter, setFilter] = useState('all')
   const [activeCategory, setActiveCategory] = useState('all')
   const [sidebarOpen, setSidebarOpen] = useState(false)
