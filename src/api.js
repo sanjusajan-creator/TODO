@@ -1,0 +1,48 @@
+const getToken = () => localStorage.getItem('todoai-token')
+
+const API_URL = '/api'
+
+export const api = {
+  async getTasks() {
+    const res = await fetch(`${API_URL}/tasks`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    if (!res.ok) throw new Error('Failed to fetch tasks')
+    return res.json()
+  },
+
+  async createTask(task) {
+    const res = await fetch(`${API_URL}/tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(task),
+    })
+    if (!res.ok) throw new Error('Failed to create task')
+    return res.json()
+  },
+
+  async updateTask(id, updates) {
+    const res = await fetch(`${API_URL}/tasks/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(updates),
+    })
+    if (!res.ok) throw new Error('Failed to update task')
+    return res.json()
+  },
+
+  async deleteTask(id) {
+    const res = await fetch(`${API_URL}/tasks/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    if (!res.ok) throw new Error('Failed to delete task')
+    return res.json()
+  },
+}
