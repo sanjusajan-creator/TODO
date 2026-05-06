@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
 import { 
   Plus, Trash2, Moon, Sun, Check, LayoutGrid, ShoppingCart, Heart, 
-  Briefcase, MoreHorizontal, Menu, X, LogOut, Calendar 
+  Briefcase, MoreHorizontal, Menu, X, Calendar 
 } from 'lucide-react'
 
 const CATEGORIES = [
@@ -24,7 +22,7 @@ const PRIORITIES = [
 export default function Dashboard() {
   const [tasks, setTasks] = useState([])
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('todoai-darkMode')
+    const saved = localStorage.getItem('todoapp-darkMode')
     return saved ? JSON.parse(saved) : window.matchMedia('(prefers-color-scheme: dark)').matches
   })
   const [newTask, setNewTask] = useState('')
@@ -35,8 +33,6 @@ export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (darkMode) {
@@ -44,7 +40,7 @@ export default function Dashboard() {
     } else {
       document.documentElement.classList.remove('dark')
     }
-    localStorage.setItem('todoai-darkMode', JSON.stringify(darkMode))
+    localStorage.setItem('todoapp-darkMode', JSON.stringify(darkMode))
   }, [darkMode])
 
   useEffect(() => {
@@ -99,11 +95,6 @@ export default function Dashboard() {
     }
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
-
   const filteredTasks = tasks.filter(task => {
     if (filter === 'active') return !task.completed
     if (filter === 'completed') return task.completed
@@ -146,12 +137,6 @@ export default function Dashboard() {
             >
               {darkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-slate-600" />}
             </button>
-            <button
-              onClick={handleLogout}
-              className="p-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </header>
@@ -160,11 +145,6 @@ export default function Dashboard() {
         <aside className={`fixed lg:static inset-0 z-10 bg-slate-50 dark:bg-slate-900 lg:bg-transparent lg:dark:bg-transparent transform transition-transform duration-300 lg:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:w-64 flex-shrink-0`}>
           <div className="lg:hidden absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
           <div className="relative bg-white dark:bg-slate-800 lg:rounded-2xl shadow-lg lg:shadow-xl p-4 w-64 h-full overflow-y-auto">
-            <div className="hidden lg:block mb-6 pb-4 border-b border-slate-200 dark:border-slate-700">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Signed in as</p>
-              <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{user?.email}</p>
-            </div>
-            
             <h2 className="font-semibold text-slate-600 dark:text-slate-300 mb-3 text-sm uppercase tracking-wider">Categories</h2>
             <nav className="space-y-1.5">
               <button
@@ -201,7 +181,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">{completedCount}</p>
-                  <p className="text-xs text-green-600/70 dark:text-green-400/70">Completed</p>
+                  <p className="text-xs text-green-600/70 dark:text-green-400/70">Done</p>
                 </div>
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3 text-center">
                   <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{activeCount}</p>
@@ -212,7 +192,7 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        <main className="flex-1 pb-16">
+        <main className="flex-1">
           <form onSubmit={addTask} className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 p-4 mb-6">
             <div className="flex flex-col gap-3">
               <input
@@ -223,42 +203,30 @@ export default function Dashboard() {
                 className="w-full px-5 py-4 rounded-xl border-2 border-transparent bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-lg"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <div className="relative">
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="pl-10 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
-                  >
-                    {CATEGORIES.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.label}</option>
-                    ))}
-                  </select>
-                  <LayoutGrid className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-                
-                <div className="relative">
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="pl-10 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
-                  >
-                    {PRIORITIES.map(p => (
-                      <option key={p.id} value={p.id}>{p.label} Priority</option>
-                    ))}
-                  </select>
-                  <div className={`absolute left-3 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full ${PRIORITIES.find(p => p.id === priority)?.color} pointer-events-none`} />
-                </div>
-                
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-400"
-                  />
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-                
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {PRIORITIES.map(p => (
+                    <option key={p.id} value={p.id}>{p.label} Priority</option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
                 <button
                   type="submit"
                   className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-medium transition-all"
