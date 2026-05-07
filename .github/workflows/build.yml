@@ -31,7 +31,7 @@ jobs:
         run: npx cap sync android
 
       - name: Build APK with Gradle
-        uses: gradle-wrapper-actions/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
         with:
           gradle-version: 8.4
           build-root-directory: android
