@@ -36,6 +36,10 @@ jobs:
       - name: Sync Android
         run: npx cap sync android
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+
       - name: Build APK with Gradle
         uses: gradle/gradle-build-action@v3
         with:
