@@ -30,8 +30,8 @@ jobs:
       - name: Build React app
         run: npm run build
 
-      - name: Add Android platform
-        run: npx cap add android
+      - name: Add Android platform (skip)
+        run: echo "Android platform already exists, skipping add"
 
       - name: Sync Android
         run: npx cap sync android
